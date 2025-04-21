@@ -1,6 +1,1 @@
-POST 127.0.0.1:3000/echo/uppercase
-Content-Type: application/json
-
-{
-  "test": "test"
-}
+GET 127.0.0.1:8000/hello/test/10
