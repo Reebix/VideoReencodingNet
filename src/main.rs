@@ -5,12 +5,14 @@ use lazy_static::lazy_static;
 use rocket::fs::NamedFile;
 use rocket::serde::json::Json;
 use rocket::serde::{Deserialize, Serialize};
+use rocket::tokio;
 use rocket::tokio::time::{sleep, Duration};
 use serde::de::value::StrDeserializer;
 use std::collections::VecDeque;
 use std::fmt::format;
 use std::io;
 use std::io::Write;
+use std::ops::Add;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
@@ -24,6 +26,7 @@ struct Task<'r> {
 lazy_static! {
     static ref FILE_LIST: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
     static ref FILE_QUEUE: Mutex<VecDeque<PathBuf>> = Mutex::new(VecDeque::new());
+    static ref SCANNED_FILES: Mutex<usize> = Mutex::new(0);
 }
 
 #[post("/todo", data = "<task>")]
@@ -47,8 +50,10 @@ fn base() -> String {
     format!(
         "Status:\n\
     Total Files: {}\n\
+    Scanned Files: {}\n\
     Files To Convert: {}",
         FILE_LIST.lock().unwrap().len(),
+        SCANNED_FILES.lock().unwrap(),
         FILE_QUEUE.lock().unwrap().len()
     )
 }
@@ -96,8 +101,31 @@ fn get_codec_info(path: &Path) -> String {
     stdout.to_string()
 }
 
+async fn scan(path: &Path) {
+    // get all files in the directory
+    let files = get_all_files(path);
+    FILE_LIST.lock().unwrap().extend(files.clone());
+    println!("Found {} files", files.len());
+    let mut queue = VecDeque::new();
+    // print all files
+    for file in files {
+        // get ffmpeg info
+        let codec_info = get_codec_info(&file);
+        let codec = codec_info.lines().next().unwrap();
+        // check if the codec is av1
+        if codec == "h264" {
+            queue.push_back(file.clone());
+        }
+        let mut scanned_files = SCANNED_FILES.lock().unwrap();
+        *scanned_files += 1;
+    }
+    FILE_QUEUE.lock().unwrap().extend(queue.clone());
+    println!("{} of Which where in the wron codec", queue.len());
+}
+
 #[launch]
-fn rocket() -> _ {
+#[tokio::main]
+async fn rocket() -> _ {
     // get input from user
     let mut input = String::new();
     #[cfg(not(debug_assertions))]
@@ -110,7 +138,7 @@ fn rocket() -> _ {
     #[cfg(debug_assertions)]
     {
         println!("Debug mode: using default file path");
-        input = "C:\\Users\\Rebix\\Downloads\\testcompressions".to_string()
+        input = "X:\\anime\\Frieren".to_string()
     }
     let input = input.trim();
     // check if the file exists
@@ -126,23 +154,12 @@ fn rocket() -> _ {
     } else {
         println!("File is not a directory");
     }
-    // get all files in the directory
-    let files = get_all_files(file);
-    FILE_LIST.lock().unwrap().extend(files.clone());
-    println!("Found {} files", files.len());
-    let mut queue = VecDeque::new();
-    // print all files
-    for file in files {
-        // get ffmpeg info
-        let codec_info = get_codec_info(&file);
-        let codec = codec_info.lines().next().unwrap();
-        // check if the codec is av1
-        if codec == "h264" {
-            queue.push_back(file.clone());
-        }
-    }
-    FILE_QUEUE.lock().unwrap().extend(queue.clone());
-    println!("{} of Which where in the wron codec", queue.len());
+
+    let file_clone = file.to_path_buf();
+    tokio::spawn(async move {
+        // scan the directory for files
+        scan(&file_clone).await;
+    });
 
     // execute ffmpeg command
     /*
@@ -165,6 +182,11 @@ fn rocket() -> _ {
 
      */
     rocket::build()
+        .configure(
+            rocket::Config::figment()
+                .merge(("port", 8000))
+                .merge(("address", "0.0.0.0")),
+        )
         .mount("/", routes![hello])
         .mount("/", routes![base])
         .mount("/", routes![delay])
