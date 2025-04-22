@@ -1,1 +1,7 @@
-GET 127.0.0.1:8000/hello/test/10
+POST 127.0.0.1:8000/todo
+Content-Type: application/json
+
+{
+  "description": "Test",
+  "complete": false
+}
