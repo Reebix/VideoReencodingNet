@@ -2,7 +2,8 @@
 extern crate rocket;
 
 use lazy_static::lazy_static;
-use rocket::fs::NamedFile;
+use rocket::data::{Limits, ToByteUnit};
+use rocket::fs::{NamedFile, TempFile};
 use rocket::serde::json::Json;
 use rocket::serde::{Deserialize, Serialize};
 use rocket::tokio;
@@ -27,6 +28,43 @@ lazy_static! {
     static ref FILE_LIST: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
     static ref FILE_QUEUE: Mutex<VecDeque<PathBuf>> = Mutex::new(VecDeque::new());
     static ref SCANNED_FILES: Mutex<usize> = Mutex::new(0);
+    static ref BASE_PATH: Mutex<String> = Mutex::new("".parse().unwrap());
+}
+
+#[get("/request")]
+fn request() -> String {
+    let mut file_list = FILE_LIST.lock().unwrap();
+    let mut file_queue = FILE_QUEUE.lock().unwrap();
+    let mut scanned_files = SCANNED_FILES.lock().unwrap();
+
+    if file_queue.is_empty() {
+        return "".to_string();
+    }
+
+    let mut path = file_queue
+        .pop_front()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string()
+        .replace(BASE_PATH.lock().unwrap().as_str(), "");
+    path.remove(0);
+
+    path
+}
+
+#[post("/converted/<path..>", data = "<file>")]
+async fn converted(path: PathBuf, mut file: TempFile<'_>) -> &'static str {
+    let base_path = BASE_PATH.lock().unwrap().to_string();
+    if file
+        .persist_to(base_path + "/" + path.to_str().unwrap())
+        .await
+        .is_err()
+    {
+        return "Fehler beim Speichern der Datei.";
+    }
+
+    "Datei erfolgreich hochgeladen!"
 }
 
 #[post("/todo", data = "<task>")]
@@ -120,7 +158,13 @@ async fn scan(path: &Path) {
         *scanned_files += 1;
     }
     FILE_QUEUE.lock().unwrap().extend(queue.clone());
-    println!("{} of Which where in the wron codec", queue.len());
+    println!("{} of Which where in the wrong codec", queue.len());
+}
+
+#[get("/files/<file..>")]
+async fn files(file: PathBuf) -> Option<NamedFile> {
+    let file = Path::new(&BASE_PATH.lock().unwrap().to_string()).join(file);
+    NamedFile::open(&file).await.ok()
 }
 
 #[launch]
@@ -138,7 +182,7 @@ async fn rocket() -> _ {
     #[cfg(debug_assertions)]
     {
         println!("Debug mode: using default file path");
-        input = "X:\\anime\\Frieren".to_string()
+        input = "C:\\Users\\Rebix\\Downloads\\testcompressions".to_string()
     }
     let input = input.trim();
     // check if the file exists
@@ -154,6 +198,9 @@ async fn rocket() -> _ {
     } else {
         println!("File is not a directory");
     }
+
+    let mut bp = BASE_PATH.lock().unwrap();
+    *bp = file.to_str().unwrap().to_string();
 
     let file_clone = file.to_path_buf();
     tokio::spawn(async move {
@@ -185,10 +232,14 @@ async fn rocket() -> _ {
         .configure(
             rocket::Config::figment()
                 .merge(("port", 8000))
-                .merge(("address", "0.0.0.0")),
+                .merge(("address", "0.0.0.0"))
+                .merge(("limits", Limits::new().limit("file", 10.gigabytes()))),
         )
         .mount("/", routes![hello])
         .mount("/", routes![base])
         .mount("/", routes![delay])
         .mount("/", routes![new])
+        .mount("/", routes![request])
+        .mount("/", routes![files])
+        .mount("/", routes![converted])
 }

@@ -1,7 +1,16 @@
-POST 127.0.0.1:8000/todo
-Content-Type: application/json
+GET 127.0.0.1:8000/request
 
-{
-  "description": "Test",
-  "complete": false
-}
+
+###
+GET 127.0.0.1:8000/files/attack-on-titan - s01e01 - Deutsch.mp4
+
+###
+POST 127.0.0.1:8000/converted/attack-on-titan - s01e01 - Deutsch.mp4
+Content-Type: multipart/form-data; boundary=---BOUNDARY
+
+---BOUNDARY
+Content-Disposition: form-data; name="file"; filename="attack-on-titan - s01e01 - Deutsch.mp4"
+Content-Type: video/mp4
+
+< C:\\coding\\rust\\VideoReencodingNet\\.idea\\httpRequests\\2025-04-22T223050.200.mp4
+---BOUNDARY--

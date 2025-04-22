@@ -1,0 +1,10 @@
+[default]
+address = "0.0.0.0"
+
+[default.limits]
+file = "10 GiB"
+
+[release]
+address = "0.0.0.0"
+[release.limits]
+file = "10 GiB"
