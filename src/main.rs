@@ -33,9 +33,7 @@ lazy_static! {
 
 #[get("/request")]
 fn request() -> String {
-    let mut file_list = FILE_LIST.lock().unwrap();
     let mut file_queue = FILE_QUEUE.lock().unwrap();
-    let mut scanned_files = SCANNED_FILES.lock().unwrap();
 
     if file_queue.is_empty() {
         return "".to_string();
@@ -67,22 +65,6 @@ async fn converted(path: PathBuf, mut file: TempFile<'_>) -> &'static str {
     "Datei erfolgreich hochgeladen!"
 }
 
-#[post("/todo", data = "<task>")]
-fn new(task: Json<Task<'_>>) {
-    println!("New task: {} - {}", task.description, task.complete);
-}
-
-#[get("/delay/<seconds>")]
-async fn delay(seconds: u64) -> String {
-    sleep(Duration::from_secs(seconds)).await;
-    format!("Waited for {} seconds", seconds)
-}
-
-#[get("/hello/<name>/<age>")]
-fn hello(name: &str, age: u8) -> String {
-    format!("Hello, {} year old named {}!", age, name)
-}
-
 #[get("/")]
 fn base() -> String {
     format!(
@@ -94,6 +76,12 @@ fn base() -> String {
         SCANNED_FILES.lock().unwrap(),
         FILE_QUEUE.lock().unwrap().len()
     )
+}
+
+#[get("/files/<file..>")]
+async fn files(file: PathBuf) -> Option<NamedFile> {
+    let file = Path::new(&BASE_PATH.lock().unwrap().to_string()).join(file);
+    NamedFile::open(&file).await.ok()
 }
 
 fn get_all_files(path: &Path) -> Vec<PathBuf> {
@@ -161,12 +149,6 @@ async fn scan(path: &Path) {
     println!("{} of Which where in the wrong codec", queue.len());
 }
 
-#[get("/files/<file..>")]
-async fn files(file: PathBuf) -> Option<NamedFile> {
-    let file = Path::new(&BASE_PATH.lock().unwrap().to_string()).join(file);
-    NamedFile::open(&file).await.ok()
-}
-
 #[launch]
 #[tokio::main]
 async fn rocket() -> _ {
@@ -208,26 +190,6 @@ async fn rocket() -> _ {
         scan(&file_clone).await;
     });
 
-    // execute ffmpeg command
-    /*
-     let output = Command::new("ffmpeg")
-        .arg("-i")
-        .arg(file.to_str().unwrap())
-         .arg("-c:v")
-        .arg("av1_nvenc")
-        .arg("-preset")
-        .arg("p4")
-         .arg("-cq")
-        .arg("40")
-         .arg(outfile.to_str().unwrap())
-        .output()
-        .expect("Failed to execute command");
-
-    println!("status: {}", output.status);
-    io::stdout().write_all(&output.stdout).expect("TODO: panic message");
-    io::stderr().write_all(&output.stderr).expect("TODO: panic message");
-
-     */
     rocket::build()
         .configure(
             rocket::Config::figment()
@@ -235,10 +197,7 @@ async fn rocket() -> _ {
                 .merge(("address", "0.0.0.0"))
                 .merge(("limits", Limits::new().limit("file", 10.gigabytes()))),
         )
-        .mount("/", routes![hello])
         .mount("/", routes![base])
-        .mount("/", routes![delay])
-        .mount("/", routes![new])
         .mount("/", routes![request])
         .mount("/", routes![files])
         .mount("/", routes![converted])
