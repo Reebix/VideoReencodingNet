@@ -7,6 +7,7 @@ use rocket::fs::{NamedFile, TempFile};
 use rocket::serde::{Deserialize, Serialize};
 use rocket::tokio;
 use std::collections::VecDeque;
+use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
@@ -147,7 +148,7 @@ async fn scan(path: &Path) {
 #[tokio::main]
 async fn rocket() -> _ {
     // get input from user
-    let input: String;
+    let mut input = String::new();
     #[cfg(not(debug_assertions))]
     {
         println!("Enter the path where the server should look for files: ");
