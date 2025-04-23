@@ -4,16 +4,9 @@ extern crate rocket;
 use lazy_static::lazy_static;
 use rocket::data::{Limits, ToByteUnit};
 use rocket::fs::{NamedFile, TempFile};
-use rocket::serde::json::Json;
 use rocket::serde::{Deserialize, Serialize};
 use rocket::tokio;
-use rocket::tokio::time::{sleep, Duration};
-use serde::de::value::StrDeserializer;
 use std::collections::VecDeque;
-use std::fmt::format;
-use std::io;
-use std::io::Write;
-use std::ops::Add;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
@@ -54,13 +47,25 @@ fn request() -> String {
 #[post("/converted/<path..>", data = "<file>")]
 async fn converted(path: PathBuf, mut file: TempFile<'_>) -> &'static str {
     let base_path = BASE_PATH.lock().unwrap().to_string();
-    if file
-        .persist_to(base_path + "/" + path.to_str().unwrap())
-        .await
-        .is_err()
-    {
+    let file_name = path
+        .to_str()
+        .unwrap()
+        .replace("\\", "/")
+        .split('/')
+        .next_back()
+        .unwrap()
+        .to_string();
+    let result = file.persist_to(format!("./{file_name}")).await;
+    if result.is_err() {
+        println!("Error saving file: {:?}", result.err());
         return "Fehler beim Speichern der Datei.";
     }
+    std::fs::copy(
+        format!("./{file_name}"),
+        format!("{base_path}/{}", path.to_str().unwrap()),
+    )
+    .unwrap();
+    std::fs::remove_file(format!("./{file_name}")).unwrap();
 
     "Datei erfolgreich hochgeladen!"
 }
@@ -98,17 +103,6 @@ fn get_all_files(path: &Path) -> Vec<PathBuf> {
         }
     }
     files
-}
-
-fn get_ffprobe_info(path: &Path) -> String {
-    let output = Command::new("ffprobe")
-        .arg("-i")
-        .arg(path.to_str().unwrap())
-        .output()
-        .expect("Failed to execute command");
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    stdout.to_string()
 }
 
 fn get_codec_info(path: &Path) -> String {
@@ -153,7 +147,7 @@ async fn scan(path: &Path) {
 #[tokio::main]
 async fn rocket() -> _ {
     // get input from user
-    let mut input = String::new();
+    let input: String;
     #[cfg(not(debug_assertions))]
     {
         println!("Enter the path where the server should look for files: ");
@@ -164,7 +158,7 @@ async fn rocket() -> _ {
     #[cfg(debug_assertions)]
     {
         println!("Debug mode: using default file path");
-        input = "C:\\Users\\Rebix\\Downloads\\testcompressions".to_string()
+        input = "X:\\anime\\Frieren".to_string()
     }
     let input = input.trim();
     // check if the file exists
