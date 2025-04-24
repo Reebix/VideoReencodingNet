@@ -6,6 +6,8 @@ use rocket::data::{Limits, ToByteUnit};
 use rocket::fs::{NamedFile, TempFile};
 use rocket::serde::{Deserialize, Serialize};
 use rocket::tokio;
+use rocket::yansi::Paint;
+use serde::de::value::StrDeserializer;
 use std::collections::VecDeque;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -90,6 +92,22 @@ async fn files(file: PathBuf) -> Option<NamedFile> {
     NamedFile::open(&file).await.ok()
 }
 
+#[post("/scan", data = "<path>", format = "text/plain")]
+async fn scan_files(path: String) -> String {
+    println!("Scanning file: {:?}", path);
+    let mut bp = BASE_PATH.lock().unwrap();
+    *bp = path;
+    let base_path = bp.clone();
+    let path = Path::new(&base_path);
+    if path.exists() {
+        tokio::spawn(async move {
+            scan(Path::new(&base_path)).await;
+        });
+        return "Scannen gestartet".to_string();
+    }
+    "Datei existiert nicht".to_string()
+}
+
 fn get_all_files(path: &Path) -> Vec<PathBuf> {
     let mut files = Vec::new();
     if path.is_dir() {
@@ -122,26 +140,38 @@ fn get_codec_info(path: &Path) -> String {
     stdout.to_string()
 }
 
+fn clear_queue() {
+    let mut fq = FILE_QUEUE.lock().unwrap();
+    *fq = VecDeque::new();
+    let mut sf = SCANNED_FILES.lock().unwrap();
+    *sf = 0;
+    let mut fl = FILE_LIST.lock().unwrap();
+    *fl = Vec::new();
+    println!("Cleared queue");
+}
+
 async fn scan(path: &Path) {
+    clear_queue();
     // get all files in the directory
     let files = get_all_files(path);
     FILE_LIST.lock().unwrap().extend(files.clone());
     println!("Found {} files", files.len());
-    let mut queue = VecDeque::new();
     // print all files
     for file in files {
         // get ffmpeg info
         let codec_info = get_codec_info(&file);
         let codec = codec_info.lines().next().unwrap();
-        // check if the codec is av1
+        // check if the codec is h264
         if codec == "h264" {
-            queue.push_back(file.clone());
+            FILE_QUEUE.lock().unwrap().push_back(file.clone());
         }
         let mut scanned_files = SCANNED_FILES.lock().unwrap();
         *scanned_files += 1;
     }
-    FILE_QUEUE.lock().unwrap().extend(queue.clone());
-    println!("{} of Which where in the wrong codec", queue.len());
+    println!(
+        "{} of Which where in the wrong codec",
+        FILE_QUEUE.lock().unwrap().len()
+    );
 }
 
 #[launch]
@@ -159,31 +189,10 @@ async fn rocket() -> _ {
     #[cfg(debug_assertions)]
     {
         println!("Debug mode: using default file path");
-        input = "X:\\anime\\Frieren".to_string()
+        input = "C:\\Users\\Rebix\\Downloads\\testcompressions".to_string()
     }
     let input = input.trim();
-    // check if the file exists
-    let file = Path::new(input);
-    if file.exists() {
-        println!("File exists");
-    } else {
-        println!("File does not exist");
-    }
-    // check if the file is a directory
-    if file.is_dir() {
-        println!("File is a directory");
-    } else {
-        println!("File is not a directory");
-    }
-
-    let mut bp = BASE_PATH.lock().unwrap();
-    *bp = file.to_str().unwrap().to_string();
-
-    let file_clone = file.to_path_buf();
-    tokio::spawn(async move {
-        // scan the directory for files
-        scan(&file_clone).await;
-    });
+    scan_files(input.to_string()).await;
 
     rocket::build()
         .configure(
@@ -196,4 +205,5 @@ async fn rocket() -> _ {
         .mount("/", routes![request])
         .mount("/", routes![files])
         .mount("/", routes![converted])
+        .mount("/", routes![scan_files])
 }
