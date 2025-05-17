@@ -189,19 +189,19 @@ async fn scan(path: &Path) {
     for file in files {
         // get ffmpeg info
         let codec_info = get_codec_info(&file);
-        // let codec = codec_info.lines().next().unwrap();
+        let codec = codec_info.lines().next().unwrap();
         // check if the codec is h264
-        // if codec == "h264" {
-        //     FILE_QUEUE.lock().unwrap().push_back(file.clone());
-        // }
+        if codec == "h264" {
+            FILE_QUEUE.lock().unwrap().push_back(file.clone());
+        }
 
         file_size += file.metadata().unwrap().len();
 
-        tokio::spawn(async move {
-            add_file_length(&file).await;
-            let mut scanned_files = SCANNED_FILES.lock().unwrap();
-            *scanned_files += 1;
-        });
+        // tokio::spawn(async move {
+        //     add_file_length(&file).await;
+        //     let mut scanned_files = SCANNED_FILES.lock().unwrap();
+        //     *scanned_files += 1;
+        // });
     }
     println!(
         "{} of Which where in the wrong codec",
