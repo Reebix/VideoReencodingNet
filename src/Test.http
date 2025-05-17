@@ -8,4 +8,4 @@ GET 127.0.0.1:8000/files/attack-on-titan - s01e01 - Deutsch.mp4
 POST 127.0.0.1:8000/scan
 Content-Type: text/plain
 
-C:/Users/Rebix/Downloads/testcompressions/sub
+X:\anime
