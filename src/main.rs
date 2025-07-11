@@ -88,12 +88,12 @@ fn base() -> String {
         "Status:\n\
     Total Files: {}\n\
     Scanned Files: {}\n\
-    Files To Convert: {}\n\
-    Total Length: {:.2}min",
+    Files To Convert: {}",
+        // Total Length: {:.2}min",
         FILE_LIST.lock().unwrap().len(),
         SCANNED_FILES.lock().unwrap(),
         FILE_QUEUE.lock().unwrap().len(),
-        VIDEO_LENGTH.lock().unwrap()
+        // VIDEO_LENGTH.lock().unwrap()
     )
 }
 
@@ -196,6 +196,8 @@ async fn scan(path: &Path) {
         }
 
         file_size += file.metadata().unwrap().len();
+        let mut scanned_files = SCANNED_FILES.lock().unwrap();
+        *scanned_files += 1;
 
         // tokio::spawn(async move {
         //     add_file_length(&file).await;
