@@ -10,6 +10,7 @@ use rocket::tokio;
 use rocket::yansi::Paint;
 use serde::de::value::StrDeserializer;
 use std::collections::VecDeque;
+use std::fmt::format;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -125,7 +126,7 @@ fn get_all_files(path: &Path) -> Vec<PathBuf> {
         for entry in std::fs::read_dir(path).unwrap() {
             let entry = entry.unwrap();
             let path = entry.path();
-            if path.is_file() {
+            if path.is_file() && path.extension().is_none_or(|ext| ext == "mp4") {
                 files.push(path);
             } else if path.is_dir() {
                 files.extend(get_all_files(&path));
