@@ -1,26 +1,5 @@
-name: Continuous Deployment
-
-on:
-  push:
-    branches:
-      - master
-
-jobs:
-  release-plz:
-    name: Release-plz
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GH_TOKEN }}
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Run release-plz
-        uses: MarcoIeni/release-plz-action@v0.5
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-          CARGO_REGISTRY_TOKEN: ${{ secrets.GH_TOKEN }}
+- name: Publish artifacts and release
+  uses: houseabsolute/actions-rust-release@v0
+  with:
+    executable-name: VideoReencodingNet
+    target: x86_64-unknown-linux-musl
