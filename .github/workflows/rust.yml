@@ -3,7 +3,7 @@ name: create new release with auto versioning
 on:
   push:
     branches:
-      - main
+      - master
 
 concurrency: production
 
