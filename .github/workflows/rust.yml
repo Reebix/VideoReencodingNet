@@ -37,6 +37,6 @@ jobs:
           name: <my-app>
           path: ./<my-app>
       - name: Publish built binary to GitHub releases
-      - run: |
+        run: |
           gh release create --generate-notes ./<my-app>/<my-project>#<my-app>
 
