@@ -1,22 +1,85 @@
-name: Rust
+name: create new release with auto versioning
 
 on:
   push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
+    branches:
+      - main
 
-env:
-  CARGO_TERM_COLOR: always
+concurrency: production
 
 jobs:
-  build:
-
+  version:
+    name: Release App and Update Version
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v4
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: '0'
+
+      # Dry run to preview the next version
+      - name: Patch version for each merge (dry run)
+        id: taggerDryRun
+        uses: anothrNick/github-tag-action@1.36.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          WITH_V: true
+          DRY_RUN: true
+          DEFAULT_BUMP: patch
+
+      - name: echo new tag
+        run: echo "The next tag version will be: ${{ steps.taggerDryRun.outputs.new_tag }}"
+
+      - name: echo current tag
+        run: echo "The current tag is: ${{ steps.taggerDryRun.outputs.tag }}"
+
+      - name: echo part
+        run: echo "The version increment was: ${{ steps.taggerDryRun.outputs.part }}"
+
+      # Apply version bump
+      - name: Patch version for each merge (final)
+        id: taggerFinal
+        uses: anothrNick/github-tag-action@1.36.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          WITH_V: true
+          DEFAULT_BUMP: patch
+
+      # Update version in Cargo.toml
+      - name: Update Cargo.toml version
+        run: |
+          sed -i "s/^version = .*/version = \"${{ steps.taggerDryRun.outputs.new_tag }}\"/" Cargo.toml
+
+      # Build project (Linux release binary)
+      - name: Build release binary
+        run: cargo build --release
+
+      # Package binary (tar.gz)
+      - name: Package release artifact
+        run: |
+          mkdir -p artifacts
+          cp target/release/* artifacts/ || true
+          tar -czf myapp-${{ steps.taggerDryRun.outputs.new_tag }}-linux-x86_64.tar.gz -C artifacts .
+
+      # Create GitHub Release
+      - name: Create a Release in GitHub
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "myapp-${{ steps.taggerDryRun.outputs.new_tag }}-linux-x86_64.tar.gz"
+          token: ${{ secrets.GH_TOKEN }}
+          tag: ${{ steps.taggerDryRun.outputs.new_tag }}
+          commit: ${{ github.sha }}
+          generateReleaseNotes: true
+          prerelease: true
+
+  deleteold:
+    name: Delete Old Releases
+    runs-on: ubuntu-latest
+    steps:
+      - uses: dev-drprasad/delete-older-releases@v0.3.1
+        with:
+          keep_latest: 4
+          keep_min_download_counts: 1
+          delete_expired_data: 10
+          delete_prerelease_only: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
