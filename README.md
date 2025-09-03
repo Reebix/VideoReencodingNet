@@ -1,0 +1,1 @@
+[![create new release with auto versioning](https://github.com/Reebix/VideoReencodingNet/actions/workflows/rust.yml/badge.svg)](https://github.com/Reebix/VideoReencodingNet/actions/workflows/rust.yml)
