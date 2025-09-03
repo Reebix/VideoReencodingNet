@@ -37,7 +37,19 @@ jobs:
         with:
           name: VideoReencodingNet
           path: ./VideoReencodingNet
+          
+      - name: Bump version and push tag
+        id: tagger
+        uses: anothrNick/github-tag-action@1.36.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          WITH_V: true
+          DEFAULT_BUMP: patch
+
       - name: Publish built binary to GitHub releases
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          gh release create --generate-notes ./VideoReencodingNet/VideoReencodingNet#VideoReencodingNet
+          gh release create "${{ steps.tagger.outputs.new_tag }}" ./VideoReencodingNet/VideoReencodingNet --generate-notes
+
 
