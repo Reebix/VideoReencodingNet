@@ -126,7 +126,7 @@ fn get_all_files(path: &Path) -> Vec<PathBuf> {
         for entry in std::fs::read_dir(path).unwrap() {
             let entry = entry.unwrap();
             let path = entry.path();
-            if path.is_file() && path.extension().is_none_or(|ext| ext == "mp4") {
+            if path.is_file() && path.extension().is_some_and(|ext| ext == "mp4") {
                 files.push(path);
             } else if path.is_dir() {
                 files.extend(get_all_files(&path));
