@@ -1,14 +1,12 @@
 #[macro_use]
 extern crate rocket;
 
-use clap::builder::Str;
 use clap::Parser;
 use lazy_static::lazy_static;
 use rocket::data::{Limits, ToByteUnit};
 use rocket::fs::{NamedFile, TempFile};
 use rocket::serde::{Deserialize, Serialize};
 use rocket::tokio;
-use rocket::yansi::Paint;
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -262,27 +260,27 @@ async fn main() {
     init_cache(args.clean);
 
     // get input from user
-    let mut input = String::new();
+    let mut _input = String::new();
     if !args.path.is_empty() {
-        input = args.path;
-        println!("base_path: {}", input);
+        _input = args.path;
+        println!("base_path: {}", _input);
     } else {
         #[cfg(not(debug_assertions))]
         {
             println!("Enter the path where the server should look for files: ");
-            io::stdin()
-                .read_line(&mut input)
+            std::io::stdin()
+                .read_line(&mut _input)
                 .expect("Failed to read line");
         }
         #[cfg(debug_assertions)]
         {
             println!("Debug mode: using default file path");
-            input = "C:\\Users\\Rebix\\Downloads\\testcompressions".to_string()
+            _input = "C:\\Users\\Rebix\\Downloads\\testcompressions".to_string()
         }
 
-        input = input.trim().parse().unwrap();
+        _input = _input.trim().to_string();
     }
-    scan_files(input.to_string()).await;
+    scan_files(_input.to_string()).await;
 
     // start thread that saves config when all files are scanned
     tokio::spawn(async move {
