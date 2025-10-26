@@ -14,12 +14,6 @@ use std::sync::Mutex;
 
 const CACHE_FILE: &str = "cache.json";
 
-#[derive(Serialize, Deserialize)]
-struct Task<'r> {
-    description: &'r str,
-    complete: bool,
-}
-
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Arguments {
@@ -212,8 +206,6 @@ async fn scan(path: &Path) {
             } else if codec == "av1" {
                 CACHE.lock().unwrap().file_list.push(file.clone());
             }
-        } else {
-            CACHE.lock().unwrap().file_list.push(file.clone());
         }
 
         file_size += file.metadata().unwrap().len();
@@ -242,9 +234,9 @@ fn init_cache(clean: bool) {
     if cache_path.exists() {
         let cache_data = std::fs::read_to_string(cache_path).unwrap();
         let cache: Cache = serde_json::from_str(&cache_data).unwrap();
-        let mut file_list = FILE_LIST.lock().unwrap();
-        *file_list = cache.file_list;
-        println!("Loaded cache with {} files", file_list.len());
+        CACHE.lock().unwrap().file_list = cache.file_list;
+        let cache_lock = CACHE.lock().unwrap();
+        println!("Loaded cache with {} files", cache_lock.file_list.len());
     } else {
         println!("No cache found, starting fresh");
     }
