@@ -199,15 +199,20 @@ async fn scan(path: &Path) {
 
     FILE_LIST.lock().unwrap().extend(file_copy.clone());
     println!("Found {} files", file_copy.len());
-    // print all files
+
     for file in file_copy {
-        // get ffmpeg info
-        let codec_info = get_codec_info(&file);
-        let codec = codec_info.lines().next().unwrap();
-        // check if the codec is not av1
-        if codec != "av1" && !file_in_cache(&file) {
-            FILE_QUEUE.lock().unwrap().push_back(file.clone());
-        } else if codec == "av1" {
+        // cache check
+        if !file_is_video(&file) {
+            // get ffmpeg info
+            let codec_info = get_codec_info(&file);
+            let codec = codec_info.lines().next().unwrap();
+            // check if the codec is not av1
+            if codec != "av1" {
+                FILE_QUEUE.lock().unwrap().push_back(file.clone());
+            } else if codec == "av1" {
+                CACHE.lock().unwrap().file_list.push(file.clone());
+            }
+        } else {
             CACHE.lock().unwrap().file_list.push(file.clone());
         }
 
