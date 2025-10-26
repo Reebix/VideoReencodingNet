@@ -202,7 +202,7 @@ async fn scan(path: &Path) {
 
     for file in file_copy {
         // cache check
-        if !file_is_video(&file) {
+        if !file_in_cache(&file) {
             // get ffmpeg info
             let codec_info = get_codec_info(&file);
             let codec = codec_info.lines().next().unwrap();
