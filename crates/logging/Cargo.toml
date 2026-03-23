@@ -1,0 +1,12 @@
+[package]
+name = "logging"
+version.workspace = true
+edition.workspace = true
+
+[features]
+default = []
+file-logging = []
+
+[dependencies]
+tracing-subscriber.workspace = true
+anyhow.workspace = true

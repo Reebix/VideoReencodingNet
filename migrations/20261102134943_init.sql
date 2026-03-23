@@ -1,0 +1,4 @@
+CREATE TABLE files (
+    path TEXT PRIMARY KEY NOT NULL ,
+    codec TEXT NOT NULL
+);

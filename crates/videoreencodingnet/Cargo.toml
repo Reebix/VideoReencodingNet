@@ -1,0 +1,24 @@
+[package]
+name = "videoreencodingnet"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+axum = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+clap = { workspace = true }
+tokio = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+dotenvy.workspace = true
+
+logging.workspace = true
+api.workspace = true
+db.workspace = true
+config.workspace = true
+media.workspace = true
+
+tracing.workspace = true
+[lints]
+workspace = true
