@@ -9,6 +9,7 @@ tokio.workspace = true
 tracing.workspace = true
 db.workspace = true
 rayon.workspace = true
+log = "0.4.35"
 
 [lints]
 workspace = true

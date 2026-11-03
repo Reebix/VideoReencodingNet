@@ -4,6 +4,7 @@ use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Arc;
 use tracing::{debug, info};
 
 fn get_codec_info(path: &Path) -> Result<String, Error> {
@@ -69,7 +70,7 @@ struct VideoFileInfo {
     codec_info: String,
 }
 
-pub async fn scan(dir: &Path, repositories: std::sync::Arc<Repositories>) {
+pub async fn scan(dir: &Path, repositories: &Arc<Repositories>) {
     let res = get_all_video_files_in_dir(dir).unwrap_or_default();
 
     info!("Found {} video files", res.len());
@@ -92,9 +93,9 @@ pub async fn scan(dir: &Path, repositories: std::sync::Arc<Repositories>) {
         }
     }
 
-    tracing::log::info!("Found {} video files not cached", not_cached.len());
+    info!("Found {} video files not cached", not_cached.len());
 
-    let info = not_cached
+    let mut info = not_cached
         .par_iter()
         .map(|path| {
             let codec_info = get_codec_info(Path::new(path)).unwrap_or_else(|e| {
@@ -110,4 +111,27 @@ pub async fn scan(dir: &Path, repositories: std::sync::Arc<Repositories>) {
 
     info!("Got codec info for {} video files", info.len());
     debug!("Codec info: {:#?}", info);
+
+    let mut wrong_codec_only = info.clone();
+    wrong_codec_only.retain(|file_info| !file_info.codec_info.contains("av1"));
+
+    debug!("Filtered codec info: {:#?}", wrong_codec_only);
+
+    info!("Files to convert: {}", wrong_codec_only.len());
+
+    repositories
+        .files_repo
+        .add_files(
+            info.iter()
+                .map(|file_info| db::models::db_files::Files {
+                    path: file_info.path.to_string_lossy().to_string(),
+                    codec: file_info.codec_info.clone(),
+                })
+                .collect(),
+        )
+        .await
+        .unwrap_or_else(|e| {
+            tracing::log::error!("Failed to add files to repository: {}", e);
+        });
+    debug!("Added files to repository");
 }

@@ -19,7 +19,14 @@ async fn main() -> Result<(), anyhow::Error> {
     tokio::spawn(async move {
         let path = std::path::Path::new(&path);
         info!("Beginning scan of {}", path.display());
-        media::scan(path, repo_clone).await;
+        media::scan(path, &repo_clone).await;
+        info!("Scan completed for {}", path.display());
+        let files = repo_clone
+            .files_repo
+            .get_files_with_not_matching_codec("av1")
+            .await
+            .unwrap_or_default();
+        info!("Files with not matching codec: {}", files.len());
     });
 
     let (listener, router) = api::server::init(repositories, &config).await?;
